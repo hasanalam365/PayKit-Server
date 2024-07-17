@@ -28,8 +28,13 @@ const client = new MongoClient(uri, {
 });
 
 async function hashPass(password) {
-    const res = await bcrypt.hash(password, 10)
-    return res
+    const res = await bcrypt.hash(password, 10);
+    return res;
+}
+
+async function comparePasswords(plainPassword, hashedPassword) {
+    const isMatch = await bcrypt.compare(plainPassword, hashedPassword);
+    return isMatch;
 }
 
 async function run() {
@@ -39,28 +44,67 @@ async function run() {
 
         const usersCollection = client.db('PayKit').collection('users')
 
+        app.get('/users', async (req, res) => {
+            const result = await usersCollection.find().toArray()
+            res.send(result)
+        })
+
+        app.get('/user/:phone/:pass', async (req, res) => {
+            const phone = req.params.phone;
+            const pass = req.params.pass;
+
+            const checkUser = await usersCollection.findOne({ phone: phone })
+
+            if (!checkUser) {
+                return res.send({ message: 'unauthorized access' })
+            }
+
+            const passIsMatch = await bcrypt.compare(pass, checkUser.password)
+
+            if (!passIsMatch) {
+                return res.send({ message: 'unauthorized access' })
+            }
+
+
+
+
+
+            const result = await usersCollection.findOne({ phone: phone })
+
+            res.send(result)
+
+
+
+        })
 
 
         app.post('/users', async (req, res) => {
             const userInfo = req.body;
 
-            const data = {
-                name: userInfo.name,
-                password: userInfo.password,
-                phone: userInfo.phone,
-                email: userInfo.email,
-                role: userInfo.role,
-                action: userInfo.action,
-                status: userInfo.status
-            }
 
-            console.log('data:', data)
-
-
-            const checking = await usersCollection.findOne({ phone: userInfo.phone })
-
-            console.log('email:', checking)
             try {
+
+                const hashedPassword = await hashPass(userInfo.password);
+
+
+                const data = {
+                    name: userInfo.name,
+                    password: hashedPassword,
+                    phone: userInfo.phone,
+                    email: userInfo.email,
+                    role: userInfo.role,
+                    action: userInfo.action,
+                    status: userInfo.status,
+                    balance: 0
+                }
+
+
+
+
+                const checking = await usersCollection.findOne({ phone: userInfo.phone })
+
+
+
                 if (checking && checking.phone === userInfo.phone) {
                     res.send('User already exists')
                 } else {
