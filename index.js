@@ -41,9 +41,9 @@ async function comparePasswords(plainPassword, hashedPassword) {
 //middlewares
 const verifyToken = (req, res, next) => {
 
-    console.log(req.headers.authorization)
+
     if (!req.headers.authorization) {
-        return res.status(401).send({ message: 'unauhtorization access' })
+        return res.status(401).send({ message: 'unauhtorized access' })
     }
 
     const token = req.headers.authorization.split(' ')[1]
@@ -51,7 +51,7 @@ const verifyToken = (req, res, next) => {
     jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
 
         if (err) {
-            return res.status(401).send({ message: 'unauhtorization access' })
+            return res.status(401).send({ message: 'unauhtorized access' })
         }
 
         req.decoded = decoded
@@ -61,6 +61,9 @@ const verifyToken = (req, res, next) => {
     })
 
 }
+
+
+
 
 async function run() {
     try {
@@ -77,15 +80,52 @@ async function run() {
 
         })
 
+        //veriyfy Admin
+
+        const verifyAdmin = async (req, res, next) => {
+            const email = req.decoded.email
+
+            const query = { email: email }
+            const user = await usersCollection.findOne(query)
+
+            const isAdmin = user?.role === 'admin'
+
+            if (!isAdmin) {
+                return res.status(403).send({ message: 'forbidden access' })
+            }
+            next()
 
 
-        app.get('/users', verifyToken, async (req, res) => {
+        }
+
+        //admin check api
+        app.get('/user/admin/:email', verifyToken, async (req, res) => {
+            const email = req.params.email
 
 
+            //decoded email check
+            if (email !== req.decoded.email) {
+                return res.status(403).send({ message: 'forbidded access' })
+            }
+            const query = { email: email }
 
+            const user = await usersCollection.findOne(query)
+
+            let admin = false
+
+            if (user) {
+                admin = user?.role === 'admin'
+            }
+            res.send({ admin })
+
+        })
+
+
+        app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
             const result = await usersCollection.find().toArray()
             res.send(result)
         })
+
 
         app.get('/user/:phone/:pass', async (req, res) => {
             const phone = req.params.phone;
@@ -118,6 +158,8 @@ async function run() {
 
 
         })
+
+
 
 
         app.post('/users', async (req, res) => {
