@@ -1,6 +1,7 @@
 const express = require('express')
 const app = express()
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken')
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const port = process.env.PORT || 5000
@@ -37,6 +38,30 @@ async function comparePasswords(plainPassword, hashedPassword) {
     return isMatch;
 }
 
+//middlewares
+const verifyToken = (req, res, next) => {
+
+    console.log(req.headers.authorization)
+    if (!req.headers.authorization) {
+        return res.status(401).send({ message: 'unauhtorization access' })
+    }
+
+    const token = req.headers.authorization.split(' ')[1]
+
+    jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
+
+        if (err) {
+            return res.status(401).send({ message: 'unauhtorization access' })
+        }
+
+        req.decoded = decoded
+        next()
+
+
+    })
+
+}
+
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
@@ -44,7 +69,20 @@ async function run() {
 
         const usersCollection = client.db('PayKit').collection('users')
 
-        app.get('/users', async (req, res) => {
+        //jwt related
+        app.post('/jwt', async (req, res) => {
+            const user = req.body
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN, { expiresIn: '2h' })
+            res.send({ token })
+
+        })
+
+
+
+        app.get('/users', verifyToken, async (req, res) => {
+
+
+
             const result = await usersCollection.find().toArray()
             res.send(result)
         })
