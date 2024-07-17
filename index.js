@@ -2,7 +2,7 @@ const express = require('express')
 const app = express()
 const bcrypt = require('bcryptjs');
 const cors = require('cors');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const port = process.env.PORT || 5000
 require('dotenv').config()
 
@@ -71,7 +71,11 @@ async function run() {
 
             const result = await usersCollection.findOne({ phone: phone })
 
-            res.send(result)
+            if (result) {
+                res.send(result)
+            }
+
+
 
 
 
@@ -118,6 +122,27 @@ async function run() {
             }
 
         })
+
+        app.patch('/users/admin/:id', async (req, res) => {
+            const id = req.params.id;
+            const role = req.body;
+
+
+
+            const query = { _id: new ObjectId(id) }
+
+            const updatedDoc = {
+                $set: {
+                    role: role.role
+                }
+            }
+
+            const result = await usersCollection.updateOne(query, updatedDoc)
+            res.send(result)
+
+        })
+
+
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
